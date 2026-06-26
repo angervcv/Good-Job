@@ -22,7 +22,7 @@ DEFAULTS = {
     "last_result": None,
     "skipped": False,
     "self_score": 100,
-    "question_history": [],  # 已做题目的ID栈，支持上一题
+    "prev_question_id": None,  # 上一题ID，支持返回
     "sequential_pos": {},  # {category_id: last_question_id}
     "random_history": [],  # [(question_id, occurrence_count), ...]
     # 每日测验
