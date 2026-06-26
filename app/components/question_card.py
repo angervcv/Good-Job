@@ -201,17 +201,21 @@ def _render_question_images(question: dict):
             "SELECT image_path, image_type FROM question_images WHERE question_id=?",
             (qid,),
         ).fetchall()
+    from pathlib import Path as _Path
+    import config
     for r in rows:
-        img_path = Path(r["image_path"])
-        if img_path.exists():
-            st.caption(f"附图（{r['image_type']}）")
-            st.image(str(img_path), use_container_width=True)
-        else:
-            # Try relative to project root
-            alt = Path("d:/GoodJob") / img_path
-            if alt.exists():
-                st.caption("附图")
-                st.image(str(alt), use_container_width=True)
+        img_path = r["image_path"]
+        # 尝试多种路径解析
+        candidates = [
+            _Path(img_path),                          # 绝对路径
+            _Path(config.ROOT_DIR) / img_path,         # 相对于项目根
+            _Path("d:/GoodJob") / img_path,            # 硬编码回退
+        ]
+        for p in candidates:
+            if p.exists():
+                st.caption(f"附图")
+                st.image(str(p), use_container_width=True)
+                break
 
 
 def _render_question_meta(question: dict):
