@@ -267,6 +267,7 @@ def _go_prev_question():
     """返回上一题"""
     from data.db.queries import get_question_by_id
     history = st.session_state.get("question_history", [])
+    reset_review()
     if len(history) >= 2:
         history.pop()  # 移除当前题
         prev_id = history.pop()  # 上一题
@@ -275,7 +276,6 @@ def _go_prev_question():
         st.session_state.current_question = q
     else:
         st.session_state.current_question = None
-    reset_review()
 
 
 def _go_next_question():
