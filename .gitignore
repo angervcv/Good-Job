@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+.venv/
+
+# Environment
+.env
+
+# Runtime user data
+data/backups/
+data/processed/
+data/page_images/
+data/images/
+
+# IDE
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Raw materials (50+ MB, not needed for deployment)
+题目/
+题目-NEW/
+
+# Claude
+.claude/
+IMAGE_PLAN.md
