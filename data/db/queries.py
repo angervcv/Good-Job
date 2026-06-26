@@ -12,10 +12,10 @@ from data.db.connection import get_cursor, get_userdata_cursor
 # 分类查询
 # ============================================================
 def get_all_categories() -> list[dict]:
-    """获取所有分类"""
+    """获取所有分类（排除电路分析）"""
     with get_cursor() as cur:
         rows = cur.execute(
-            "SELECT * FROM categories ORDER BY sort_order"
+            "SELECT * FROM categories WHERE name != '电路分析' ORDER BY sort_order"
         ).fetchall()
         return [dict(r) for r in rows]
 

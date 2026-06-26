@@ -149,7 +149,7 @@ def select_daily_quiz_questions(user_id: int = None) -> list[dict]:
     rng = random.Random(hash(today))
 
     with get_cursor() as cur:
-        categories = cur.execute("SELECT id, name FROM categories ORDER BY sort_order").fetchall()
+        categories = cur.execute("SELECT id, name FROM categories WHERE name != '电路分析' ORDER BY sort_order").fetchall()
         cats = [dict(c) for c in categories]
 
     if not cats:

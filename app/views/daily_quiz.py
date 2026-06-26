@@ -39,6 +39,7 @@ def render_daily_quiz():
     if existing_quiz and existing_quiz.get("completed"):
         _render_completed_quiz(existing_quiz)
         _render_past_quizzes(user_id)
+        _render_today_scoreboard()
 
     elif st.session_state.quiz_started:
         _render_quiz_in_progress(user_id)
@@ -46,6 +47,7 @@ def render_daily_quiz():
     else:
         _render_quiz_start(user_id, existing_quiz)
         _render_past_quizzes(user_id)
+        _render_today_scoreboard()
 
 
 def _render_quiz_start(user_id: int, existing_quiz: dict | None):
@@ -369,6 +371,28 @@ def _render_completed_quiz(existing_quiz: dict):
     if st.button("返回首页"):
         reset_quiz()
         st.rerun()
+
+
+def _render_today_scoreboard():
+    """今日测验得分榜"""
+    from data.db.connection import get_userdata_cursor
+    from datetime import date
+    today = str(date.today())
+    with get_userdata_cursor() as cur:
+        rows = cur.execute(
+            "SELECT u.username, q.total_score FROM daily_quizzes q JOIN users u ON q.user_id=u.id WHERE q.quiz_date=? AND q.completed=1 ORDER BY q.total_score DESC",
+            (today,),
+        ).fetchall()
+    if rows:
+        st.divider()
+        st.markdown("### 今日得分榜")
+        for r in rows:
+            s = r["total_score"]
+            if s >= 90: lv = "夯爆了"
+            elif s >= 70: lv = "人上人"
+            elif s >= 60: lv = "NPC"
+            else: lv = "拉完了"
+            st.markdown(f"**{r['username']}**: {s:.0f}/100 {lv}")
 
 
 def _render_past_quizzes(user_id: int):
