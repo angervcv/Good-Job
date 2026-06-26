@@ -266,48 +266,38 @@ def _render_completed_quiz_detail():
             from app.components.question_card import render_answer_section
             render_answer_section(question)
 
-            # 评论区
-            _render_quiz_comment(question["id"])
-
     # 重新测验按钮
+    _render_quiz_notes(st.session_state.quiz_id)
     st.info("今日测验已完成！明天再来吧。")
 
     if st.button("返回首页"):
         st.rerun()
 
 
-def _render_quiz_comment(qid: int):
-    """在测验回顾中渲染单题评论区"""
-    from data.db.connection import get_cursor, get_userdata_cursor
+def _render_quiz_notes(quiz_id: int):
+    """整场测验的讨论区"""
+    from data.db.connection import get_userdata_cursor
     from app.components.navigation import require_login
+    import json; from datetime import datetime
 
-    st.markdown("#### 讨论")
+    st.markdown("### 讨论区")
     with get_userdata_cursor() as cur:
-        rows = cur.execute(
-            """SELECT c.content, c.created_at, u.username
-               FROM comments c JOIN users u ON c.user_id = u.id
-               WHERE c.question_id = ? AND DATE(c.created_at) = DATE('now', 'localtime')
-               ORDER BY c.created_at DESC LIMIT 5""",
-            (qid,),
-        ).fetchall()
-    if rows:
-        for r in rows:
-            st.caption(f"**{r['username']}** · {r['created_at'][:16]}")
-            st.markdown(r["content"])
+        row = cur.execute("SELECT quiz_notes FROM daily_quizzes WHERE id=?", (quiz_id,)).fetchone()
+        notes = json.loads(row["quiz_notes"]) if row and row["quiz_notes"] else []
+    if notes:
+        for n in notes:
+            st.caption(f"**{n['user']}** · {n['time']}")
+            st.markdown(n["content"]); st.divider()
     else:
         st.caption("暂无讨论")
-
-    with st.form(f"quiz_comment_{qid}", clear_on_submit=True):
-        c = st.text_input("添加笔记", key=f"qc_{qid}", placeholder="记录思路或疑问...", label_visibility="collapsed")
-        if st.form_submit_button("发布"):
-            if c.strip():
-                user = require_login()
-                with get_userdata_cursor() as cur:
-                    cur.execute(
-                        "INSERT INTO comments (user_id, question_id, content) VALUES (?, ?, ?)",
-                        (user["id"], qid, c.strip()),
-                    )
-                st.rerun()
+    with st.form(f"quiz_notes_{quiz_id}", clear_on_submit=True):
+        c = st.text_input("添加讨论", key=f"qn_{quiz_id}", placeholder="讨论本场测验...", label_visibility="collapsed")
+        if st.form_submit_button("发布") and c.strip():
+            user = require_login()
+            notes.append({"user": user["username"], "time": datetime.now().strftime("%m-%d %H:%M"), "content": c.strip()})
+            with get_userdata_cursor() as cur2:
+                cur2.execute("UPDATE daily_quizzes SET quiz_notes=? WHERE id=?", (json.dumps(notes, ensure_ascii=False), quiz_id))
+            st.rerun()
 
 
 def _render_completed_quiz(existing_quiz: dict):
@@ -364,8 +354,9 @@ def _render_completed_quiz(existing_quiz: dict):
             st.divider()
             from app.components.question_card import render_answer_section
             render_answer_section(q)
-            _render_quiz_comment(q["id"])
+            st.divider()
 
+    _render_quiz_notes(existing_quiz["id"])
     st.info("每天仅限一次测验，明天再来吧！")
 
     if st.button("返回首页"):
