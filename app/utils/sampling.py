@@ -137,50 +137,53 @@ def get_occurrence_count(question_id: int) -> int:
 
 
 def select_daily_quiz_questions(user_id: int = None) -> list[dict]:
-    """为每日测验抽取 10 道题
+    """为每日测验抽取 10 道题（同用户同天固定题目）
 
     确保覆盖所有 4 个分类，每个分类至少 2 题
     """
+    from datetime import date
     total_count = config.DAILY_QUIZ_COUNT
-    questions = []
+
+    # 基于 user_id + 日期 的确定性种子
+    today = str(date.today())
+    seed_val = hash(f"{user_id}_{today}")
+    rng = random.Random(seed_val)
 
     with get_cursor() as cur:
-        # 获取所有分类
         categories = cur.execute("SELECT id, name FROM categories ORDER BY sort_order").fetchall()
         cats = [dict(c) for c in categories]
 
     if not cats:
         return []
 
-    base_per_cat = total_count // len(cats)  # 2
-    extra = total_count - base_per_cat * len(cats)  # 2
+    base_per_cat = total_count // len(cats)
+    extra = total_count - base_per_cat * len(cats)
+    questions = []
 
     for i, cat in enumerate(cats):
-        # 剩余题数分给前面几个分类
         count = base_per_cat + (1 if i < extra else 0)
-
         with get_cursor() as cur:
             rows = cur.execute(
-                """SELECT * FROM questions
-                   WHERE category_id = ? AND is_active = 1
-                   ORDER BY RANDOM() LIMIT ?""",
-                (cat["id"], count),
+                "SELECT * FROM questions WHERE category_id = ? AND is_active = 1",
+                (cat["id"],),
             ).fetchall()
-            questions.extend([dict(r) for r in rows])
+        cat_qs = [dict(r) for r in rows]
+        rng.shuffle(cat_qs)
+        questions.extend(cat_qs[:count])
 
-    # 如果不够 10 题（题库不足），补充
+    # 不够 10 题则从全库补充
     if len(questions) < total_count:
         existing_ids = [q["id"] for q in questions]
         with get_cursor() as cur:
             rows = cur.execute(
-                f"""SELECT * FROM questions
-                   WHERE is_active = 1 AND id NOT IN ({','.join('?'*len(existing_ids))})
-                   ORDER BY RANDOM() LIMIT ?""",
-                (*existing_ids, total_count - len(questions)),
+                f"SELECT * FROM questions WHERE is_active = 1 AND id NOT IN ({','.join('?'*len(existing_ids))})",
+                existing_ids,
             ).fetchall()
-            questions.extend([dict(r) for r in rows])
+        remaining = [dict(r) for r in rows]
+        rng.shuffle(remaining)
+        questions.extend(remaining[:total_count - len(questions)])
 
-    random.shuffle(questions)
+    rng.shuffle(questions)
     return questions[:total_count]
 
 

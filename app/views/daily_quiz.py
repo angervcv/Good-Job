@@ -38,12 +38,14 @@ def render_daily_quiz():
 
     if existing_quiz and existing_quiz.get("completed"):
         _render_completed_quiz(existing_quiz)
+        _render_past_quizzes(user_id)
 
     elif st.session_state.quiz_started:
         _render_quiz_in_progress(user_id)
 
     else:
         _render_quiz_start(user_id, existing_quiz)
+        _render_past_quizzes(user_id)
 
 
 def _render_quiz_start(user_id: int, existing_quiz: dict | None):
@@ -265,7 +267,6 @@ def _render_completed_quiz_detail():
     st.info("今日测验已完成！明天再来吧。")
 
     if st.button("返回首页"):
-        st.session_state.current_page = "首页"
         st.rerun()
 
 
@@ -279,7 +280,8 @@ def _render_quiz_comment(qid: int):
         rows = cur.execute(
             """SELECT c.content, c.created_at, u.username
                FROM comments c JOIN users u ON c.user_id = u.id
-               WHERE c.question_id = ? ORDER BY c.created_at DESC LIMIT 5""",
+               WHERE c.question_id = ? AND DATE(c.created_at) = DATE('now', 'localtime')
+               ORDER BY c.created_at DESC LIMIT 5""",
             (qid,),
         ).fetchall()
     if rows:
@@ -362,5 +364,38 @@ def _render_completed_quiz(existing_quiz: dict):
 
     if st.button("返回首页"):
         reset_quiz()
-        st.session_state.current_page = "首页"
         st.rerun()
+
+
+def _render_past_quizzes(user_id: int):
+    """显示往期测验记录"""
+    from data.db.connection import get_userdata_cursor
+    with get_userdata_cursor() as cur:
+        past = cur.execute(
+            "SELECT * FROM daily_quizzes WHERE user_id=? AND completed=1 AND quiz_date < DATE('now', 'localtime') ORDER BY quiz_date DESC LIMIT 30",
+            (user_id,),
+        ).fetchall()
+    if not past:
+        return
+    st.divider()
+    st.markdown("### 往期测验")
+    for quiz in past:
+        qz = dict(quiz)
+        with st.expander(f"{qz['quiz_date']} — 得分 {qz['total_score']:.0f}/100"):
+            try:
+                qids = json.loads(qz.get("questions_json", "[]"))
+                answers = json.loads(qz.get("answers_json", "{}"))
+            except json.JSONDecodeError:
+                st.caption("数据损坏")
+                continue
+            from data.db.connection import get_cursor
+            with get_cursor() as cur2:
+                for i, qid in enumerate(qids):
+                    row = cur2.execute("SELECT question_text, answer_text FROM questions WHERE id=?", (int(qid),)).fetchone()
+                    if row:
+                        ua = answers.get(str(qid), "")
+                        st.caption(f"第{i+1}题: {row['question_text'][:60]}...")
+                        if ua:
+                            st.caption(f"你的答案: {ua[:100]}")
+                        st.markdown(f"参考答案: {row['answer_text'][:200]}...")
+                        st.divider()
