@@ -114,12 +114,16 @@ def _render_quiz_in_progress(user_id: int):
     # 作答区
     qtype = question.get("question_type", "short_answer")
 
+    saved = st.session_state.quiz_answers.get(current_idx, "")
+
     if qtype in ("single_choice", "multiple_choice"):
         from app.components.question_card import render_choice_input
-        user_answer = render_choice_input(question)
+        user_answer = render_choice_input(question, default_value=saved)
     else:
-        from app.components.question_card import render_text_input
-        user_answer = render_text_input(question, key_suffix="_quiz")
+        user_answer = st.text_area(
+            "你的答案：", height=150, placeholder="在此输入你的答案...",
+            key=f"quiz_answer_{question.get('id', 0)}", value=saved,
+        )
 
     # 导航按钮 - 按下一题/上一题时自动保存答案
     col1, col2 = st.columns([1, 1])

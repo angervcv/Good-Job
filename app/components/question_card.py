@@ -144,7 +144,7 @@ def _parse_inline_options(question_text: str) -> list[str]:
     return []
 
 
-def render_choice_input(question: dict) -> str:
+def render_choice_input(question: dict, default_value: str = "") -> str:
     """渲染选择题输入组件，返回用户答案"""
     qtype = question.get("question_type", "short_answer")
     options = question.get("options", "")
@@ -155,21 +155,28 @@ def render_choice_input(question: dict) -> str:
         except json.JSONDecodeError:
             options = []
 
-    # 如果 options 字段为空，尝试从题目文本中解析
     if not options:
         options = _parse_inline_options(question.get("question_text", ""))
 
     if qtype == "single_choice" and options:
+        # 查找默认选项的 index
+        default_idx = None
+        if default_value:
+            for i, opt in enumerate(options):
+                if opt.strip().startswith(default_value.strip()):
+                    default_idx = i; break
         user_answer = st.radio(
             "请选择：",
             options=options,
-            index=None,
+            index=default_idx,
             key=f"choice_{question.get('id', 0)}",
         )
     elif qtype == "multiple_choice" and options:
         selected = []
+        defaults = [d.strip() for d in default_value.split(",")] if default_value else []
         for opt in options:
-            if st.checkbox(opt, key=f"mc_{question.get('id', 0)}_{opt[:20]}"):
+            checked = any(opt.strip().startswith(d) for d in defaults)
+            if st.checkbox(opt, value=checked, key=f"mc_{question.get('id', 0)}_{opt[:20]}"):
                 selected.append(opt)
         user_answer = ", ".join(selected) if selected else ""
     else:
