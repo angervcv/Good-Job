@@ -197,8 +197,14 @@ def _render_result(question: dict):
     st.divider()
     _render_comment_section(question)
 
-    if st.button("下一题", use_container_width=True, type="primary"):
-        _go_next_question()
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if len(st.session_state.get("question_history", [])) > 1:
+            if st.button("上一题", use_container_width=True):
+                _go_prev_question()
+    with col2:
+        if st.button("下一题", use_container_width=True, type="primary"):
+            _go_next_question()
 
 
 def _load_next_question():
@@ -212,7 +218,11 @@ def _load_next_question():
     else:
         question = get_next_question_random(cat_id)
 
-    st.session_state.current_question = question
+    if question:
+        history = st.session_state.get("question_history", [])
+        history.append(question["id"])
+        st.session_state.question_history = history
+        st.session_state.current_question = question
 
 
 def _render_comment_section(question: dict):
@@ -253,6 +263,21 @@ def _render_comment_section(question: dict):
                 st.rerun()
 
 
+def _go_prev_question():
+    """返回上一题"""
+    from data.db.queries import get_question_by_id
+    history = st.session_state.get("question_history", [])
+    if len(history) >= 2:
+        history.pop()  # 移除当前题
+        prev_id = history.pop()  # 上一题
+        st.session_state.question_history = history
+        q = get_question_by_id(prev_id)
+        st.session_state.current_question = q
+    else:
+        st.session_state.current_question = None
+    reset_review()
+
+
 def _go_next_question():
     """跳转到下一题"""
     reset_review()
@@ -266,11 +291,13 @@ def _on_category_change():
     st.session_state.current_question = None
     st.session_state.sequential_pos = {}
     st.session_state.random_history = []
+    st.session_state.question_history = []
 
 
 def _on_mode_change():
     """模式切换回调"""
     reset_review()
+    st.session_state.question_history = []
     st.session_state.current_question = None
     st.session_state.sequential_pos = {}
     st.session_state.random_history = []
