@@ -197,14 +197,8 @@ def _render_result(question: dict):
     st.divider()
     _render_comment_section(question)
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.session_state.get("prev_question_id"):
-            if st.button("上一题", use_container_width=True):
-                _go_prev_question()
-    with col2:
-        if st.button("下一题", use_container_width=True, type="primary"):
-            _go_next_question()
+    if st.button("下一题", use_container_width=True, type="primary"):
+        _go_next_question()
 
 
 def _load_next_question():
@@ -212,11 +206,6 @@ def _load_next_question():
     user_id = require_login()["id"]
     mode = st.session_state.review_mode
     cat_id = st.session_state.get("review_category_id")
-
-    # 保存当前题ID作为"上一题"
-    cur = st.session_state.get("current_question")
-    if cur:
-        st.session_state.prev_question_id = cur["id"]
 
     if mode == "sequential":
         question = get_next_question_sequential(user_id, cat_id)
@@ -265,21 +254,6 @@ def _render_comment_section(question: dict):
                 st.rerun()
 
 
-def _go_prev_question():
-    """返回上一题"""
-    from data.db.queries import get_question_by_id
-    prev_id = st.session_state.get("prev_question_id")
-    reset_review()
-    if prev_id:
-        q = get_question_by_id(prev_id)
-        st.session_state.current_question = q
-        # 用更早的上一题作为新的 prev
-        st.session_state.prev_question_id = None
-    else:
-        st.session_state.current_question = None
-    st.rerun()
-
-
 def _go_next_question():
     """跳转到下一题"""
     reset_review()
@@ -293,13 +267,11 @@ def _on_category_change():
     st.session_state.current_question = None
     st.session_state.sequential_pos = {}
     st.session_state.random_history = []
-    st.session_state.prev_question_id = None
 
 
 def _on_mode_change():
     """模式切换回调"""
     reset_review()
-    st.session_state.prev_question_id = None
     st.session_state.current_question = None
     st.session_state.sequential_pos = {}
     st.session_state.random_history = []
