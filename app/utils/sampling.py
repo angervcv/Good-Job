@@ -144,10 +144,9 @@ def select_daily_quiz_questions(user_id: int = None) -> list[dict]:
     from datetime import date
     total_count = config.DAILY_QUIZ_COUNT
 
-    # 基于 user_id + 日期 的确定性种子
+    # 基于日期的确定性种子，所有用户同一天同一套题
     today = str(date.today())
-    seed_val = hash(f"{user_id}_{today}")
-    rng = random.Random(seed_val)
+    rng = random.Random(hash(today))
 
     with get_cursor() as cur:
         categories = cur.execute("SELECT id, name FROM categories ORDER BY sort_order").fetchall()
