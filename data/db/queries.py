@@ -5,7 +5,7 @@
 import uuid
 import json
 from typing import Optional
-from data.db.connection import get_cursor
+from data.db.connection import get_cursor, get_userdata_cursor
 
 
 # ============================================================
@@ -193,7 +193,7 @@ def update_question_stats(question_id: int, is_correct: bool):
 # ============================================================
 def get_or_create_user(username: str) -> dict:
     """获取或创建用户"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         row = cur.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
@@ -211,14 +211,14 @@ def get_or_create_user(username: str) -> dict:
 
 def get_all_users() -> list[dict]:
     """获取所有用户"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         rows = cur.execute("SELECT * FROM users ORDER BY id").fetchall()
         return [dict(r) for r in rows]
 
 
 def update_user_stats(user_id: int, is_correct: bool):
     """更新用户统计"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         cur.execute(
             """UPDATE users
                SET total_reviewed = total_reviewed + 1,
@@ -231,7 +231,7 @@ def update_user_stats(user_id: int, is_correct: bool):
 
 def update_user_streak(user_id: int):
     """更新连续刷题天数 - 简化版: 直接设 last_active = today"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         cur.execute(
             "UPDATE users SET last_active = DATE('now', 'localtime') WHERE id = ?",
             (user_id,),
@@ -251,7 +251,7 @@ def save_answer(
     review_session: str = "sequential",
 ) -> int:
     """保存作答记录"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         cur.execute(
             """INSERT INTO user_answers
                (user_id, question_id, user_answer, is_correct, score, feedback, review_session)
@@ -261,40 +261,59 @@ def save_answer(
         return cur.lastrowid
 
 
-def get_user_answer_history(
-    user_id: int,
-    limit: int = 10,
-) -> list[dict]:
-    """获取用户最近作答记录"""
-    with get_cursor() as cur:
-        rows = cur.execute(
-            """SELECT ua.*, q.question_text, q.question_type, q.category_id
-               FROM user_answers ua
-               JOIN questions q ON ua.question_id = q.id
-               WHERE ua.user_id = ?
-               ORDER BY ua.reviewed_at DESC LIMIT ?""",
-            (user_id, limit),
+def get_user_answer_history(user_id: int, limit: int = 10) -> list[dict]:
+    """获取用户最近作答记录（跨库查询）"""
+    with get_userdata_cursor() as ucur:
+        ua_rows = ucur.execute(
+            "SELECT * FROM user_answers WHERE user_id=? ORDER BY reviewed_at DESC LIMIT ?",
+            (user_id, limit)
         ).fetchall()
-        return [dict(r) for r in rows]
+    if not ua_rows:
+        return []
+    qids = [r["question_id"] for r in ua_rows]
+    with get_cursor() as qcur:
+        q_rows = qcur.execute(
+            f"SELECT id, question_text, question_type, category_id FROM questions WHERE id IN ({','.join('?'*len(qids))})",
+            qids
+        ).fetchall()
+    q_map = {r["id"]: dict(r) for r in q_rows}
+    result = []
+    for ua in ua_rows:
+        d = dict(ua)
+        q = q_map.get(d["question_id"], {})
+        d["question_text"] = q.get("question_text", "")
+        d["question_type"] = q.get("question_type", "")
+        d["category_id"] = q.get("category_id")
+        result.append(d)
+    return result
 
 
 def get_user_category_progress(user_id: int) -> list[dict]:
-    """获取用户各模块刷题进度"""
-    with get_cursor() as cur:
-        rows = cur.execute(
-            """SELECT
-                   c.id as category_id,
-                   c.name as category_name,
-                   COUNT(DISTINCT ua.question_id) as reviewed_count,
-                   SUM(CASE WHEN ua.is_correct = 1 THEN 1 ELSE 0 END) as correct_count
-               FROM categories c
-               LEFT JOIN questions q ON q.category_id = c.id AND q.is_active = 1
-               LEFT JOIN user_answers ua ON ua.question_id = q.id AND ua.user_id = ?
-               GROUP BY c.id
-               ORDER BY c.sort_order""",
-            (user_id,),
+    """获取用户各模块刷题进度（跨库查询）"""
+    # 从goodjob获取分类和题目映射
+    with get_cursor() as qcur:
+        cats = qcur.execute("SELECT id, name, sort_order FROM categories ORDER BY sort_order").fetchall()
+        all_qs = qcur.execute("SELECT id, category_id FROM questions WHERE is_active=1").fetchall()
+    cat_questions = {}
+    for q in all_qs:
+        cat_questions.setdefault(q["category_id"], []).append(q["id"])
+    # 从userdata获取用户作答
+    with get_userdata_cursor() as ucur:
+        ua_rows = ucur.execute(
+            "SELECT question_id, is_correct FROM user_answers WHERE user_id=?", (user_id,)
         ).fetchall()
-        return [dict(r) for r in rows]
+    user_correct = {}; user_seen = set()
+    for ua in ua_rows:
+        user_seen.add(ua["question_id"])
+        if ua["is_correct"]:
+            user_correct[ua["question_id"]] = True
+    result = []
+    for c in cats:
+        cid = c["id"]; qlist = cat_questions.get(cid, [])
+        reviewed = sum(1 for qid in qlist if qid in user_seen)
+        correct = sum(1 for qid in qlist if qid in user_correct)
+        result.append({"category_id": cid, "category_name": c["name"], "reviewed_count": reviewed, "correct_count": correct})
+    return result
 
 
 def get_daily_question_count(user_id: int, date: str = None) -> int:
@@ -303,7 +322,7 @@ def get_daily_question_count(user_id: int, date: str = None) -> int:
         date = "DATE('now', 'localtime')"
     else:
         date = f"'{date}'"
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         row = cur.execute(
             f"""SELECT COUNT(*) as cnt FROM user_answers
                 WHERE user_id = ? AND DATE(reviewed_at) = {date}""",
@@ -317,7 +336,7 @@ def get_daily_question_count(user_id: int, date: str = None) -> int:
 # ============================================================
 def create_daily_quiz(user_id: int, question_ids: list[int]) -> int:
     """创建每日测验记录"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         cur.execute(
             """INSERT INTO daily_quizzes
                (user_id, quiz_date, questions_json, max_score)
@@ -329,7 +348,7 @@ def create_daily_quiz(user_id: int, question_ids: list[int]) -> int:
 
 def get_today_quiz(user_id: int) -> dict | None:
     """获取今日测验"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         row = cur.execute(
             """SELECT * FROM daily_quizzes
                WHERE user_id = ? AND quiz_date = DATE('now', 'localtime')
@@ -341,7 +360,7 @@ def get_today_quiz(user_id: int) -> dict | None:
 
 def complete_quiz(quiz_id: int, total_score: float, answers_json: str):
     """完成测验"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         cur.execute(
             """UPDATE daily_quizzes
                SET total_score = ?, answers_json = ?, completed = 1,
@@ -356,7 +375,7 @@ def complete_quiz(quiz_id: int, total_score: float, answers_json: str):
 # ============================================================
 def get_leaderboard_by_count(limit: int = 20) -> list[dict]:
     """刷题数排行榜"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         rows = cur.execute(
             """SELECT username, total_reviewed, total_correct,
                       ROUND(CAST(total_correct AS REAL) / MAX(total_reviewed, 1) * 100, 1) as accuracy
@@ -370,7 +389,7 @@ def get_leaderboard_by_count(limit: int = 20) -> list[dict]:
 
 def get_leaderboard_by_accuracy(min_reviewed: int = 20, limit: int = 20) -> list[dict]:
     """正确率排行榜"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         rows = cur.execute(
             """SELECT username, total_reviewed,
                       ROUND(CAST(total_correct AS REAL) / MAX(total_reviewed, 1) * 100, 1) as accuracy
@@ -384,7 +403,7 @@ def get_leaderboard_by_accuracy(min_reviewed: int = 20, limit: int = 20) -> list
 
 def get_weekly_stats(user_id: int) -> list[dict]:
     """最近 7 天每日刷题统计"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         rows = cur.execute(
             """SELECT DATE(reviewed_at) as date,
                       COUNT(*) as count,

@@ -8,13 +8,13 @@ from data.db.queries import (
     get_random_question,
     get_category_question_count,
 )
-from data.db.connection import get_cursor
+from data.db.connection import get_cursor, get_userdata_cursor
 import config
 
 
 def _load_position(user_id: int, category_id: int | None) -> int:
     """从数据库加载顺序刷题位置"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         if category_id is None:
             row = cur.execute(
                 "SELECT last_question_id FROM review_progress WHERE user_id = ? AND category_id IS NULL",
@@ -30,7 +30,7 @@ def _load_position(user_id: int, category_id: int | None) -> int:
 
 def _save_position(user_id: int, category_id: int | None, last_id: int):
     """保存顺序刷题位置到数据库"""
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         if category_id is None:
             cur.execute(
                 "DELETE FROM review_progress WHERE user_id = ? AND category_id IS NULL",

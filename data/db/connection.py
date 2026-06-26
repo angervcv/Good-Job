@@ -56,6 +56,27 @@ def get_connection(db_path: str | Path = None) -> sqlite3.Connection:
     return conn
 
 
+@contextmanager
+def get_userdata_cursor():
+    """获取用户数据库游标（userdata.db，部署时不被覆盖）"""
+    from data.db.schema import init_userdata
+    db_path = Path(config.USER_DB_PATH)
+    if not db_path.exists():
+        init_userdata(db_path)
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        yield cursor
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def close_connection():
     """兼容旧接口（新版本每次连接自动关闭，无需此函数）"""
     pass

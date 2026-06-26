@@ -223,8 +223,8 @@ def render_overall_stats(user_id: int):
     with col4:
         # 连续天数（简化：只要 last_active 是今天就算）
         # 这里简单处理
-        from data.db.connection import get_cursor
-        with get_cursor() as cur:
+        from data.db.connection import get_userdata_cursor
+        with get_userdata_cursor() as cur:
             row = cur.execute(
                 "SELECT streak_days FROM users WHERE id = ?", (user_id,)
             ).fetchone()

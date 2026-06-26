@@ -217,13 +217,13 @@ def _load_next_question():
 
 def _render_comment_section(question: dict):
     """渲染题目评论区"""
-    from data.db.connection import get_cursor
+    from data.db.connection import get_userdata_cursor
 
     st.markdown("### 讨论区")
     qid = question["id"]
 
     # 加载已有评论
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         rows = cur.execute(
             """SELECT c.content, c.created_at, u.username
                FROM comments c JOIN users u ON c.user_id = u.id
@@ -245,7 +245,7 @@ def _render_comment_section(question: dict):
         if st.form_submit_button("发布", use_container_width=True):
             if comment.strip():
                 user = require_login()
-                with get_cursor() as cur:
+                with get_userdata_cursor() as cur:
                     cur.execute(
                         "INSERT INTO comments (user_id, question_id, content) VALUES (?, ?, ?)",
                         (user["id"], qid, comment.strip()),

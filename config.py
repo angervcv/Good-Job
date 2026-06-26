@@ -14,7 +14,8 @@ load_dotenv(ROOT_DIR / ".env")
 
 # 数据目录
 DATA_DIR = ROOT_DIR / "data"
-DB_PATH = DATA_DIR / "goodjob.db"
+DB_PATH = DATA_DIR / "goodjob.db"        # 题库（git追踪，部署时覆盖）
+USER_DB_PATH = DATA_DIR / "userdata.db"  # 用户数据（gitignore，部署时保留）
 EXTRACTED_DIR = DATA_DIR / "processed" / "extracted"
 PARSED_DIR = DATA_DIR / "processed" / "parsed"
 BACKUP_DIR = DATA_DIR / "backups"

@@ -17,7 +17,7 @@ from data.db.queries import (
     complete_quiz,
     get_question_by_id,
 )
-from data.db.connection import get_cursor
+from data.db.connection import get_cursor, get_userdata_cursor
 
 
 def render_daily_quiz():
@@ -271,11 +271,11 @@ def _render_completed_quiz_detail():
 
 def _render_quiz_comment(qid: int):
     """在测验回顾中渲染单题评论区"""
-    from data.db.connection import get_cursor
+    from data.db.connection import get_cursor, get_userdata_cursor
     from app.components.navigation import require_login
 
     st.markdown("#### 讨论")
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         rows = cur.execute(
             """SELECT c.content, c.created_at, u.username
                FROM comments c JOIN users u ON c.user_id = u.id
@@ -294,7 +294,7 @@ def _render_quiz_comment(qid: int):
         if st.form_submit_button("发布"):
             if c.strip():
                 user = require_login()
-                with get_cursor() as cur:
+                with get_userdata_cursor() as cur:
                     cur.execute(
                         "INSERT INTO comments (user_id, question_id, content) VALUES (?, ?, ?)",
                         (user["id"], qid, c.strip()),
@@ -304,7 +304,7 @@ def _render_quiz_comment(qid: int):
 
 def _render_completed_quiz(existing_quiz: dict):
     """渲染已完成的测验结果（含完整复盘）"""
-    from data.db.connection import get_cursor
+    from data.db.connection import get_cursor, get_userdata_cursor
 
     total_score = existing_quiz.get('total_score', 0)
     st.markdown(f"## 得分: {total_score}/100")

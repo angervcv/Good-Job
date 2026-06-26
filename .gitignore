@@ -17,6 +17,7 @@ data/backups/
 data/processed/
 data/page_images/
 data/images/
+data/userdata.db
 
 # IDE
 .vscode/

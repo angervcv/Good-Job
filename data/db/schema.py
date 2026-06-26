@@ -143,6 +143,83 @@ CREATE INDEX IF NOT EXISTS idx_review_progress_user ON review_progress(user_id);
 """
 
 
+# 用户数据库 DDL（独立文件，部署时不覆盖）
+USER_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    display_name TEXT,
+    total_reviewed INTEGER DEFAULT 0,
+    total_correct INTEGER DEFAULT 0,
+    streak_days INTEGER DEFAULT 0,
+    last_active DATE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS user_answers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id),
+    question_id INTEGER,
+    user_answer TEXT,
+    is_correct INTEGER,
+    score REAL,
+    feedback TEXT,
+    answer_time_sec INTEGER,
+    review_session TEXT,
+    reviewed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS daily_quizzes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id),
+    quiz_date DATE NOT NULL,
+    total_score REAL DEFAULT 0,
+    max_score REAL DEFAULT 100,
+    questions_json TEXT,
+    answers_json TEXT,
+    completed INTEGER DEFAULT 0,
+    completed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS review_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id),
+    category_id INTEGER,
+    reviewed_count INTEGER DEFAULT 0,
+    correct_count INTEGER DEFAULT 0,
+    last_question_id INTEGER DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, category_id)
+);
+CREATE TABLE IF NOT EXISTS daily_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id),
+    stat_date DATE NOT NULL,
+    questions_done INTEGER DEFAULT 0,
+    correct_count INTEGER DEFAULT 0,
+    time_spent_sec INTEGER DEFAULT 0,
+    UNIQUE(user_id, stat_date)
+);
+CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id),
+    question_id INTEGER,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+
+def init_userdata(db_path=None):
+    """初始化用户数据库"""
+    if db_path is None:
+        db_path = config.USER_DB_PATH
+    db_path = Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript(USER_SCHEMA_SQL)
+    conn.commit()
+    conn.close()
+
+
 def init_db(db_path: str | Path = None) -> sqlite3.Connection:
     """初始化数据库：创建所有表并插入预设分类"""
     if db_path is None:
