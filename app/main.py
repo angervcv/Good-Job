@@ -101,6 +101,30 @@ def _render_sidebar():
         </div>
         """, unsafe_allow_html=True)
 
+        st.divider()
+
+        # 数据备份/恢复（仅已登录用户可见）
+        if st.session_state.get("user_logged_in"):
+            with st.expander("数据备份"):
+                # 下载备份
+                try:
+                    with open("data/userdata.db", "rb") as f:
+                        st.download_button(
+                            "下载用户数据备份",
+                            data=f.read(),
+                            file_name="userdata_backup.db",
+                            mime="application/octet-stream",
+                            use_container_width=True,
+                        )
+                except FileNotFoundError:
+                    st.caption("暂无用户数据")
+                st.caption("部署前下载备份，部署后上传恢复")
+                uploaded = st.file_uploader("恢复用户数据", type=["db"], label_visibility="collapsed")
+                if uploaded:
+                    with open("data/userdata.db", "wb") as f:
+                        f.write(uploaded.read())
+                    st.success("已恢复，刷新页面生效")
+
 
 def _load_css():
     st.markdown("""
