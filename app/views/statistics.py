@@ -75,9 +75,11 @@ def _render_history(user_id: int):
     from data.db.connection import get_cursor
     from app.components.question_card import render_question_card, render_answer_section
 
+    from data.db.connection import get_userdata_cursor
+
     st.markdown("## 刷题历史")
 
-    with get_cursor() as cur:
+    with get_userdata_cursor() as cur:
         total = cur.execute(
             "SELECT COUNT(*) FROM user_answers WHERE user_id = ?", (user_id,)
         ).fetchone()[0]
@@ -86,31 +88,41 @@ def _render_history(user_id: int):
         st.info("还没有刷题记录")
         return
 
-    # 分页
     page_size = 20
     page = st.number_input("页码", min_value=1, max_value=max(1, (total + page_size - 1) // page_size), value=1, label_visibility="collapsed")
     offset = (page - 1) * page_size
-
     st.caption(f"共 {total} 条记录，第 {page} 页")
 
-    with get_cursor() as cur:
-        rows = cur.execute(
-            """SELECT ua.id, ua.user_answer, ua.is_correct, ua.score, ua.feedback,
-                      ua.review_session, ua.reviewed_at,
-                      q.id as qid, q.question_text, q.question_type, q.answer_text,
-                      q.keywords, q.difficulty, q.is_ai_generated,
-                      c.name as category_name
-               FROM user_answers ua
-               JOIN questions q ON ua.question_id = q.id
-               LEFT JOIN categories c ON q.category_id = c.id
-               WHERE ua.user_id = ?
-               ORDER BY ua.reviewed_at DESC
-               LIMIT ? OFFSET ?""",
+    # 从 userdata 取作答记录
+    with get_userdata_cursor() as ucur:
+        ua_rows = ucur.execute(
+            "SELECT * FROM user_answers WHERE user_id=? ORDER BY reviewed_at DESC LIMIT ? OFFSET ?",
             (user_id, page_size, offset),
         ).fetchall()
+    if not ua_rows:
+        st.info("还没有刷题记录")
+        return
 
-    for r in rows:
-        r = dict(r)
+    # 从 goodjob 取题目和分类信息
+    qids = [r["question_id"] for r in ua_rows]
+    with get_cursor() as qcur:
+        q_rows = qcur.execute(
+            f"SELECT q.id, q.question_text, q.question_type, q.answer_text, q.keywords, q.difficulty, q.is_ai_generated, c.name as category_name FROM questions q LEFT JOIN categories c ON q.category_id=c.id WHERE q.id IN ({','.join('?'*len(qids))})",
+            qids,
+        ).fetchall()
+    q_map = {r["id"]: dict(r) for r in q_rows}
+
+    for ua in ua_rows:
+        r = dict(ua)
+        q = q_map.get(r["question_id"], {})
+        r["qid"] = q.get("id", r["question_id"])
+        r["question_text"] = q.get("question_text", "")
+        r["question_type"] = q.get("question_type", "")
+        r["answer_text"] = q.get("answer_text", "")
+        r["keywords"] = q.get("keywords", "")
+        r["difficulty"] = q.get("difficulty", 3)
+        r["is_ai_generated"] = q.get("is_ai_generated", 0)
+        r["category_name"] = q.get("category_name", "")
         # 结果标识
         if r["is_correct"] == 1:
             badge = "✅"
