@@ -7,7 +7,7 @@ license: MIT
 
 Behavioral guidelines to reduce common LLM coding mistakes, derived from [Andrej Karpathy&#39;s observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+**Tradeoff:** These guidelines bias toward caution over speed. No exceptions.
 
 ## 1. Think Before Coding
 
@@ -70,6 +70,26 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Verify Before Push
+
+**Push 前必须本地跑通。**
+
+涉及以下变更时，push 前必须执行 `python -c "from app.main import main"` 验证全部模块导入正确：
+
+- import 语句变更
+- 函数重命名/移动
+- 数据库结构变更
+- 新增/删除模块文件
+
+涉及数据层变更时，额外验证关键函数：
+```
+python -c "
+from data.db.queries import get_or_create_user, get_user_category_progress, get_total_question_count
+u = get_or_create_user('_verify_')
+print(f'user={u[\"id\"]}, progress={len(get_user_category_progress(u[\"id\"]))} cats, questions={get_total_question_count()}')
+"
+```
+
 ## [附加要求]
 
 * 输出和思考一律使用中文
@@ -82,5 +102,5 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
   以创造接口为耻，以复用现有为荣
   以跳过验证为耻，以主动测试为荣
   以破坏架构为耻，以遵循规范为荣
-  以假装理解为耻，以诚实无知为菜
+  以假装理解为耻，以诚实无知为荣
   以盲目修改为耻，以谨慎重构为荣

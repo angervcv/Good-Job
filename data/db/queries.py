@@ -5,7 +5,8 @@
 import uuid
 import json
 from typing import Optional
-from data.db.connection import get_cursor, get_userdata_cursor
+import streamlit as st
+from data.db.connection import get_cursor
 
 
 # ============================================================
@@ -218,6 +219,7 @@ def get_user_answer_history(user_id: int, limit: int = 10) -> list[dict]:
     return result
 
 
+@st.cache_data(ttl=30)
 def get_user_category_progress(user_id: int) -> list[dict]:
     with get_cursor() as qcur:
         cats = qcur.execute("SELECT id, name, sort_order FROM categories WHERE name != '电路分析' ORDER BY sort_order").fetchall()

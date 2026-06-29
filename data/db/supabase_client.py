@@ -2,6 +2,7 @@
 Supabase 数据层 - 用户数据永久保存
 """
 import json
+import streamlit as st
 from datetime import date, datetime
 from supabase import create_client
 import config
@@ -29,9 +30,13 @@ def get_or_create_user(username: str) -> dict:
     return {"id": hash(username) % 100000, "username": username, "total_reviewed": 0, "total_correct": 0}
 
 
-def get_all_users() -> list[dict]:
+@st.cache_data(ttl=60)
+def get_all_users_cached() -> list[dict]:
     try: return _client().table("users").select("*").order("id").execute().data or []
     except: return []
+
+def get_all_users() -> list[dict]:
+    return get_all_users_cached()
 
 
 def update_user_stats(user_id: int, is_correct: bool):
@@ -215,6 +220,7 @@ def get_weekly_stats(user_id: int) -> list[dict]:
                       "count": 0} for i in range(6, -1, -1)]
 
 
+@st.cache_data(ttl=60)
 def get_leaderboard_by_count(limit: int = 20) -> list[dict]:
     try:
         r = _client().table("users").select("username,total_reviewed,total_correct")\
