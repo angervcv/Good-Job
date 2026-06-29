@@ -72,11 +72,11 @@ def _render_history(user_id: int):
     from data.db.connection import get_cursor
     from app.components.question_card import render_question_card, render_answer_section
 
-    from data.db.supabase_client import _get_all_user_answers
+    from data.db.supabase_client import get_all_user_answers
 
     st.markdown("## 刷题历史")
 
-    all_ua = _get_all_user_answers(user_id)
+    all_ua = get_all_user_answers(user_id)
     total = len(all_ua)
 
     if total == 0:

@@ -75,7 +75,7 @@ def get_user_answer_history(user_id: int, limit: int = 10) -> list[dict]:
     except: return []
 
 
-def _get_all_user_answers(user_id: int) -> list[dict]:
+def get_all_user_answers(user_id: int) -> list[dict]:
     try:
         r = _client().table("user_answers").select("*").eq("user_id", user_id)\
             .order("id").limit(1000).execute()

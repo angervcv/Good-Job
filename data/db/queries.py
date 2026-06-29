@@ -195,7 +195,7 @@ from data.db.supabase_client import *
 
 # 跨库函数：需要同时查 Supabase + goodjob
 def get_user_answer_history(user_id: int, limit: int = 10) -> list[dict]:
-    ua_rows = _get_all_user_answers(user_id)
+    ua_rows = get_all_user_answers(user_id)
     # sort by reviewed_at desc, take top
     ua_rows.sort(key=lambda x: x.get("reviewed_at", ""), reverse=True)
     ua_rows = ua_rows[:limit]
@@ -224,7 +224,7 @@ def get_user_category_progress(user_id: int) -> list[dict]:
         all_qs = qcur.execute("SELECT id, category_id FROM questions WHERE is_active=1").fetchall()
     cat_questions = {}
     for q in all_qs: cat_questions.setdefault(q["category_id"], []).append(q["id"])
-    ua_rows = _get_all_user_answers(user_id)
+    ua_rows = get_all_user_answers(user_id)
     user_correct = {}; user_seen = set()
     for ua in ua_rows:
         user_seen.add(ua.get("question_id"))
