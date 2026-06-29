@@ -218,39 +218,26 @@ def _load_next_question():
 
 def _render_comment_section(question: dict):
     """渲染题目评论区"""
-    from data.db.connection import get_userdata_cursor
+    from data.db.supabase_client import get_question_comments, add_comment
 
     st.markdown("### 讨论区")
     qid = question["id"]
-
-    # 加载已有评论
-    with get_userdata_cursor() as cur:
-        rows = cur.execute(
-            """SELECT c.content, c.created_at, u.username
-               FROM comments c JOIN users u ON c.user_id = u.id
-               WHERE c.question_id = ? ORDER BY c.created_at DESC LIMIT 10""",
-            (qid,),
-        ).fetchall()
-
+    rows = get_question_comments(qid, limit=10)
     if rows:
         for r in rows:
-            st.caption(f"**{r['username']}** · {r['created_at'][:16]}")
-            st.markdown(r["content"])
+            username = r.get("users", {}).get("username", "?") if isinstance(r.get("users"), dict) else r.get("username", "?")
+            st.caption(f"**{username}** · {str(r.get('created_at', ''))[:16]}")
+            st.markdown(r.get("content", ""))
             st.divider()
     else:
         st.caption("暂无讨论，留下你的笔记吧")
 
-    # 添加评论
     with st.form(f"comment_form_{qid}", clear_on_submit=True):
         comment = st.text_input("添加笔记或讨论", placeholder="记录你的思路、疑问或总结...", label_visibility="collapsed")
         if st.form_submit_button("发布", use_container_width=True):
             if comment.strip():
                 user = require_login()
-                with get_userdata_cursor() as cur:
-                    cur.execute(
-                        "INSERT INTO comments (user_id, question_id, content) VALUES (?, ?, ?)",
-                        (user["id"], qid, comment.strip()),
-                    )
+                add_comment(user["id"], qid, comment.strip())
                 st.rerun()
 
 

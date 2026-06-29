@@ -223,12 +223,9 @@ def render_overall_stats(user_id: int):
     with col4:
         # 连续天数（简化：只要 last_active 是今天就算）
         # 这里简单处理
-        from data.db.connection import get_userdata_cursor
-        with get_userdata_cursor() as cur:
-            row = cur.execute(
-                "SELECT streak_days FROM users WHERE id = ?", (user_id,)
-            ).fetchone()
-            streak = row["streak_days"] if row else 0
+        from data.db.supabase_client import _client
+        r = _client().table("users").select("streak_days").eq("id", user_id).limit(1).execute()
+        streak = r.data[0]["streak_days"] if r.data else 0
 
         st.markdown(f"""
         <div class="stat-card">

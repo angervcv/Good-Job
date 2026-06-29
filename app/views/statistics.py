@@ -75,14 +75,12 @@ def _render_history(user_id: int):
     from data.db.connection import get_cursor
     from app.components.question_card import render_question_card, render_answer_section
 
-    from data.db.connection import get_userdata_cursor
+    from data.db.supabase_client import _get_all_user_answers
 
     st.markdown("## 刷题历史")
 
-    with get_userdata_cursor() as cur:
-        total = cur.execute(
-            "SELECT COUNT(*) FROM user_answers WHERE user_id = ?", (user_id,)
-        ).fetchone()[0]
+    all_ua = _get_all_user_answers(user_id)
+    total = len(all_ua)
 
     if total == 0:
         st.info("还没有刷题记录")
@@ -93,12 +91,9 @@ def _render_history(user_id: int):
     offset = (page - 1) * page_size
     st.caption(f"共 {total} 条记录，第 {page} 页")
 
-    # 从 userdata 取作答记录
-    with get_userdata_cursor() as ucur:
-        ua_rows = ucur.execute(
-            "SELECT * FROM user_answers WHERE user_id=? ORDER BY reviewed_at DESC LIMIT ? OFFSET ?",
-            (user_id, page_size, offset),
-        ).fetchall()
+    # 按 reviewed_at 排序并分页
+    all_ua.sort(key=lambda x: str(x.get("reviewed_at", "")), reverse=True)
+    ua_rows = all_ua[offset:offset + page_size]
     if not ua_rows:
         st.info("还没有刷题记录")
         return

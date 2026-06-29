@@ -15,7 +15,11 @@ load_dotenv(ROOT_DIR / ".env")
 # 数据目录
 DATA_DIR = ROOT_DIR / "data"
 DB_PATH = DATA_DIR / "goodjob.db"        # 题库（git追踪，部署时覆盖）
-USER_DB_PATH = DATA_DIR / "userdata.db"  # 用户数据（gitignore，部署时保留）
+USER_DB_PATH = DATA_DIR / "userdata.db"  # 本地回退
+
+# Supabase（云端持久化）
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://mjvreelvdenljvmcdaye.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_tZ1u7TCR-37Z_-RjMak0xg_vwy2sRBF")
 EXTRACTED_DIR = DATA_DIR / "processed" / "extracted"
 PARSED_DIR = DATA_DIR / "processed" / "parsed"
 BACKUP_DIR = DATA_DIR / "backups"

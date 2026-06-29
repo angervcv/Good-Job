@@ -276,14 +276,12 @@ def _render_completed_quiz_detail():
 
 def _render_quiz_notes(quiz_id: int):
     """整场测验的讨论区"""
-    from data.db.connection import get_userdata_cursor
+    from data.db.supabase_client import get_quiz_notes, save_quiz_notes
     from app.components.navigation import require_login
-    import json; from datetime import datetime
+    from datetime import datetime
 
     st.markdown("### 讨论区")
-    with get_userdata_cursor() as cur:
-        row = cur.execute("SELECT quiz_notes FROM daily_quizzes WHERE id=?", (quiz_id,)).fetchone()
-        notes = json.loads(row["quiz_notes"]) if row and row["quiz_notes"] else []
+    notes = get_quiz_notes(quiz_id)
     if notes:
         for n in notes:
             st.caption(f"**{n['user']}** · {n['time']}")
@@ -295,14 +293,13 @@ def _render_quiz_notes(quiz_id: int):
         if st.form_submit_button("发布") and c.strip():
             user = require_login()
             notes.append({"user": user["username"], "time": datetime.now().strftime("%m-%d %H:%M"), "content": c.strip()})
-            with get_userdata_cursor() as cur2:
-                cur2.execute("UPDATE daily_quizzes SET quiz_notes=? WHERE id=?", (json.dumps(notes, ensure_ascii=False), quiz_id))
+            save_quiz_notes(quiz_id, notes)
             st.rerun()
 
 
 def _render_completed_quiz(existing_quiz: dict):
     """渲染已完成的测验结果（含完整复盘）"""
-    from data.db.connection import get_cursor, get_userdata_cursor
+    from data.db.connection import get_cursor
 
     total_score = existing_quiz.get('total_score', 0)
     st.markdown(f"## 得分: {total_score}/100")
@@ -366,34 +363,25 @@ def _render_completed_quiz(existing_quiz: dict):
 
 def _render_today_scoreboard():
     """今日测验得分榜"""
-    from data.db.connection import get_userdata_cursor
-    from datetime import date
-    today = str(date.today())
-    with get_userdata_cursor() as cur:
-        rows = cur.execute(
-            "SELECT u.username, q.total_score FROM daily_quizzes q JOIN users u ON q.user_id=u.id WHERE q.quiz_date=? AND q.completed=1 ORDER BY q.total_score DESC",
-            (today,),
-        ).fetchall()
+    from data.db.supabase_client import get_today_scoreboard
+    rows = get_today_scoreboard()
     if rows:
         st.divider()
         st.markdown("### 今日得分榜")
         for r in rows:
             s = r["total_score"]
+            username = r.get("users", {}).get("username", "?") if isinstance(r.get("users"), dict) else r.get("username", "?")
             if s >= 90: lv = "夯爆了"
             elif s >= 70: lv = "人上人"
             elif s >= 60: lv = "NPC"
             else: lv = "拉完了"
-            st.markdown(f"**{r['username']}**: {s:.0f}/100 {lv}")
+            st.markdown(f"**{username}**: {s:.0f}/100 {lv}")
 
 
 def _render_past_quizzes(user_id: int):
     """显示往期测验记录"""
-    from data.db.connection import get_userdata_cursor
-    with get_userdata_cursor() as cur:
-        past = cur.execute(
-            "SELECT * FROM daily_quizzes WHERE user_id=? AND completed=1 AND quiz_date < DATE('now', 'localtime') ORDER BY quiz_date DESC LIMIT 30",
-            (user_id,),
-        ).fetchall()
+    from data.db.supabase_client import get_past_quizzes
+    past = get_past_quizzes(user_id)
     if not past:
         return
     st.divider()
