@@ -32,24 +32,23 @@ def main():
     # 侧边栏：仅保留 Logo + 用户登录
     _render_sidebar()
 
-    # 顶部 Tab 导航
-    tab_home, tab_review, tab_quiz, tab_stats = st.tabs([
-        "首页", "模块刷题", "每日测验", "统计排行"
-    ])
+    # 顶部导航 - 用 radio 模拟 tab（只渲染当前页，避免全部查询 Supabase）
+    page = st.radio(
+        "", ["首页", "模块刷题", "每日测验", "统计排行"],
+        horizontal=True, label_visibility="collapsed",
+        key="main_nav",
+    )
 
-    with tab_home:
+    if page == "首页":
         from app.views.home import render_home
         render_home()
-
-    with tab_review:
+    elif page == "模块刷题":
         from app.views.review import render_review
         render_review()
-
-    with tab_quiz:
+    elif page == "每日测验":
         from app.views.daily_quiz import render_daily_quiz
         render_daily_quiz()
-
-    with tab_stats:
+    elif page == "统计排行":
         from app.views.statistics import render_statistics
         render_statistics()
 
