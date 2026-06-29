@@ -27,7 +27,7 @@ def render_statistics():
         return
 
     # 选项卡
-    tab1, tab2, tab3, tab4 = st.tabs(["个人统计", "刷题历史", "排行榜", "数据"])
+    tab1, tab2, tab3 = st.tabs(["个人统计", "刷题历史", "排行榜"])
 
     with tab1:
         _render_personal_stats(user_id)
@@ -38,9 +38,6 @@ def render_statistics():
     with tab3:
         st.markdown("## 排行榜")
         render_leaderboard()
-
-    with tab4:
-        _render_backup()
 
 
 def _render_personal_stats(user_id: int):
@@ -160,22 +157,3 @@ def _render_history(user_id: int):
             # 参考答案
             render_answer_section(q_data)
 
-
-def _render_backup():
-    """数据备份恢复"""
-    st.markdown("## 数据管理")
-    col1, col2 = st.columns(2)
-    with col1:
-        try:
-            with open("data/userdata.db", "rb") as f:
-                st.download_button("下载备份", data=f.read(),
-                    file_name="userdata_backup.db", mime="application/octet-stream",
-                    use_container_width=True)
-        except FileNotFoundError:
-            st.caption("暂无数据")
-    with col2:
-        uploaded = st.file_uploader("恢复备份", type=["db"], label_visibility="collapsed")
-        if uploaded:
-            with open("data/userdata.db", "wb") as f:
-                f.write(uploaded.read())
-            st.success("已恢复，刷新页面生效")
