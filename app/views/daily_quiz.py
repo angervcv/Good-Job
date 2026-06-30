@@ -194,9 +194,13 @@ def _render_quiz_review(user_id: int):
             "total_score": round(total_score, 1),
         }
 
-        # 完成测验
+        # 完成测验 - 保存完整结果（含每题分数和评价）
         answers_json = json.dumps(
-            {str(r["question_id"]): r["user_answer"] for r in results},
+            {str(r["question_id"]): {
+                "answer": r["user_answer"],
+                "score": r["result"].get("score", 0),
+                "feedback": r["result"].get("feedback", ""),
+            } for r in results},
             ensure_ascii=False,
         )
         complete_quiz(
@@ -336,8 +340,16 @@ def _render_completed_quiz(existing_quiz: dict):
     st.markdown("### 各题详情")
     for i, q in enumerate(questions):
         qid = str(q["id"])
-        user_ans = answers.get(qid, "")
-        score = 10 if user_ans and q.get("answer_text", "")[:3] == user_ans[:3] else 0  # rough estimate for objective
+        ans_data = answers.get(qid, "")
+        # 兼容新旧格式
+        if isinstance(ans_data, dict):
+            user_ans = ans_data.get("answer", "")
+            score = ans_data.get("score", 0)
+            feedback = ans_data.get("feedback", "")
+        else:
+            user_ans = ans_data
+            score = 0
+            feedback = ""
 
         with st.expander(
             f"第 {i + 1} 题 | {'✅' if score >= 6 else '❌'} {score:.0f}/10分 | "
@@ -348,6 +360,8 @@ def _render_completed_quiz(existing_quiz: dict):
                 st.markdown(f"**你的答案：** {user_ans}")
             else:
                 st.caption("未作答")
+            if feedback:
+                st.caption(f"AI评价: {feedback}")
             st.divider()
             from app.components.question_card import render_answer_section
             render_answer_section(q)

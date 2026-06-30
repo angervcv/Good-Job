@@ -82,6 +82,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - 新增/删除模块文件
 
 涉及数据层变更时，额外验证关键函数：
+
 ```
 python -c "
 from data.db.queries import get_or_create_user, get_user_category_progress, get_total_question_count
@@ -96,11 +97,13 @@ print(f'user={u[\"id\"]}, progress={len(get_user_category_progress(u[\"id\"]))} 
 * 不要过度使用emoji，合理的使用是可以的
 * 使用者地区位于中国大陆，类似github的网站和资源可能无法直接访问，需要代理或访问镜像
 * pip install使用阿里云镜像
-* 以暗猜接口为耻，以认真查阅为荣
-  以模糊执行为耻，以寻求确认为荣
-  以盲想业务为耻，以人类确认为荣
-  以创造接口为耻，以复用现有为荣
-  以跳过验证为耻，以主动测试为荣
-  以破坏架构为耻，以遵循规范为荣
-  以假装理解为耻，以诚实无知为荣
-  以盲目修改为耻，以谨慎重构为荣
+* 不要猜测接口，先查阅代码
+* 不要模糊执行，先确认需求
+* 不要臆想业务，先问人确认
+* 不要凭空创造接口，复用现有的
+* 不要跳过验证，主动测试
+* 不要破坏架构，遵循现有规范
+* 不要假装理解，诚实说不懂
+* 不要盲目修改，谨慎重构
+* 修改文件前必须先 Read
+* 修改文件前先做备份
